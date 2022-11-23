@@ -30,7 +30,7 @@ def set_args():
     parser.add_argument('--global_lr', default='1e-3', type=float, help='Learning rate of global model')
     parser.add_argument('--gen_lr', default='1e-3', type=float, help='Learning rate of generator')
     parser.add_argument('--gamma', default='0.99', type=float, help='Decaying rate')
-    parser.add_argument('--decay', default='0', type=int, help='whether decay learning rate on cloud')
+    parser.add_argument('--decay', default='1', type=int, help='whether decay learning rate on cloud')
 
     parser.add_argument('--epochs', default='5', type=int)
     parser.add_argument('--global_epoch', default='5', type=int)

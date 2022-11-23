@@ -29,12 +29,12 @@ def adversarial(args, models, attentions, prototypes, cloud_gen, iter, class_num
         model.eval()
     cloud_gen.train()
 
-    # 是否进行学习率衰减
-    if args.decay == 1:
-        gen_lr = args.gen_lr * (args.gamma ** iter)
-    else:
-        gen_lr = args.gen_lr
-
+    # # 是否进行学习率衰减
+    # if args.decay == 1:
+    #     gen_lr = args.gen_lr * (args.gamma ** iter)
+    # else:
+    #     gen_lr = args.gen_lr
+    gen_lr = args.gen_lr
     optimizer_gen = torch.optim.Adam(cloud_gen.parameters(), lr=gen_lr)
 
     soft = nn.Softmax(dim=1)
@@ -117,14 +117,14 @@ def adversarial(args, models, attentions, prototypes, cloud_gen, iter, class_num
               epoch+1, args.global_epoch, loss_G.item(), np.mean(np.array(teachers_acc))*100))
     print("Generator Finished!")
 
-    # # attention module averaging for global attention module
-    # model_atten = nn.ModuleList()
-    # for value in models.values():
-    #     model_atten.append(value.atten)
-    # global_atten_dict = para_avg(model_atten, weight)
+    # attention module averaging for global attention module
+    model_atten = nn.ModuleList()
+    for value in models.values():
+        model_atten.append(value.atten)
+    global_atten_dict = para_avg(model_atten, weight)
 
-    # return cloud_gen, global_atten_dict
-    return cloud_gen
+    return cloud_gen, global_atten_dict
+    # return cloud_gen
 
 
 def adversarial_global(args, models, attentions, prototypes, cloud_gen, global_model, iter, class_num, label_client, device):

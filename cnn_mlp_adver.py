@@ -16,7 +16,6 @@ from args import set_args
 import ipdb
 from collections import Counter
 from adversarial import adversarial
-from fedoptimizer import FedZKTl2Optimizer
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -45,18 +44,13 @@ label_client = client.label_client          # 记录每个类别在每个边端�
 write_to_excel(label_client)
 
 
-def train(args, model, loader, device, model_name, init_flag):
+def train(args, model, loader, device, optimizer, model_name, init_flag):
     print("{} train begining!...".format(model_name))
     model.train()
     total_step = len(loader)
     ce = nn.CrossEntropyLoss()
-    
-    # if init_flag == True:
-    #     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    # else:
-    #     optimizer = FedZKTl2Optimizer(model.parameters(), lr=args.lr, beta=args.beta)
 
-    optimizer = FedZKTl2Optimizer(model.parameters(), lr=args.lr, beta=args.beta)
+    # optimizer = FedZKTl2Optimizer(model.parameters(), lr=args.lr, beta=args.beta)
     
     for epoch in range(args.epochs):
         for i, (xi, yi) in enumerate(loader):
@@ -188,7 +182,7 @@ for model_name in model_total:
     f.close()
 
 
-testloaders = []
+# testloaders = []
 # cnn and mlp collaboration
 for iter in range(iterations):
     print("Iter [{}/{}]".format(iter+1, iterations))
@@ -196,6 +190,19 @@ for iter in range(iterations):
     init_flag = False
     prototype_matrix, attention_matrix = [], []
     models = {}
+
+    # 是否进行学习率衰减
+    if args.decay == 1:
+        if iter >= 0 and iter < 9:
+            lr = args.lr
+        elif iter >= 9 and iter < 49:
+            lr = args.lr * 0.1
+        elif iter >= 49:
+            lr = args.lr * 0.1**2
+        print("Local Learning Rate:{}".format(lr))
+    else:
+        lr = args.lr
+    
 
     # clients
     for i in range(len(model_total)):
@@ -259,13 +266,15 @@ for iter in range(iterations):
             testset = dataSet_MLP(testdata, testlabel)
         train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=4, drop_last=False)
         test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=4, drop_last=False)
-        testloaders.append(test_loader)
+        # testloaders.append(test_loader)
 
         f = open(os.path.join(path, '{}_log.txt'.format(model_name)), "a")
         f.write('Iteration [{}/{}] \n'.format(iter+1, iterations))
         f.close()
 
-        model_trained, train_acc = train(args, model, train_loader, device, model_name, init_flag)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+        model_trained, train_acc = train(args, model, train_loader, device, optimizer, model_name, init_flag)
 
         test_acc = test(model_trained, test_loader, model_name)
 
@@ -290,15 +299,14 @@ for iter in range(iterations):
     # cloud
     # cloud_gen, global_atten_dict = adversarial(args, model_last, attention_last, prototype_last, \
     #                                            cloud_gen, iter, class_num, label_client, device)
-    cloud_gen = adversarial(args, model_last, attention_last, prototype_last, \
+    cloud_gen, global_atten_dict = adversarial(args, model_last, attention_last, prototype_last, \
                                                cloud_gen, iter, class_num, label_client, device)
 
     # plot distribution of cloud generated samples
     plot_generate_sample(args, cloud_gen, testdata, testlabel, iter, device, time_log)
-    # # 全局atten层参数加载到各个边端的atten层
-    # for para in model_last.values():
-    #     para.atten.load_state_dict(global_atten_dict)
-
+    # 全局atten层参数加载到各个边端的atten层
+    for para in model_last.values():
+        para.atten.load_state_dict(global_atten_dict)
 
 # ipdb.set_trace()
 # plot_average_weight(aver_weights, './img/weight_change.png')

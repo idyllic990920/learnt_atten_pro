@@ -29,12 +29,12 @@ def set_args():
     parser.add_argument('--lr', default='1e-3', type=float, help='Learning rate of local training')
     parser.add_argument('--global_lr', default='1e-3', type=float, help='Learning rate of global model')
     parser.add_argument('--gen_lr', default='1e-3', type=float, help='Learning rate of generator')
-    parser.add_argument('--gamma', default='0.99', type=float, help='Decaying rate')
+    parser.add_argument('--gamma', default='0.5', type=float, help='Decaying rate')
     parser.add_argument('--decay', default='1', type=int, help='whether decay learning rate on cloud')
 
     parser.add_argument('--epochs', default='5', type=int)
     parser.add_argument('--global_epoch', default='5', type=int)
-    parser.add_argument('--iterations', default='50', type=int)
+    parser.add_argument('--iterations', default='1', type=int)
     parser.add_argument('--n_critic', default='10', type=int)
     parser.add_argument('--batch_size', default='32', type=int)
     parser.add_argument('--batch_size_global', default='32', type=int)
@@ -59,6 +59,9 @@ def set_args():
                                          help='coefficient of label in generator training')
     parser.add_argument('--lamda_ms', default='0.1', type=float, 
                                          help='coefficient of label in generator training')
+    
+    # self local training
+    parser.add_argument('--local_log_name', default='./log/local_train/debug', type=str, help='self local training')
 
     # # global model training
     # parser.add_argument('--beta_proto', default='1', type=float, 

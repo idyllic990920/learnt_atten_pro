@@ -167,8 +167,48 @@ def attention_and_prototype(model, loader, labels, device):
 
     return attention_mat, prototype_mat, 
 
+def local_train(model, loader, epochs_resp, optimizer, device, model_name):
+    print("{} local training begin!...".format(model_name))
+    model.train()
+    total_step = len(loader)
+    ce = nn.CrossEntropyLoss()
+    
+    for epoch in range(epochs_resp):
+        for i, (xi, yi) in enumerate(loader):
+            if xi.shape[0] < 2:
+                break
+            xi = xi.to(torch.float).to(device)
+            yi = yi.to(device)
+
+            optimizer.zero_grad()
+            *_, out = model(xi)
+            loss = ce(out, yi)
+            loss.backward()
+            optimizer.step()
+
+            if i%100 == 0:
+                print ('Epoch [{}/{}], Step [{}/{}], Loss: [{:.4f}]'
+                .format(epoch+1, epochs_resp, i+1, total_step, loss.item()))
+
+    # 输出训练集上预测精度
+    model.eval()  
+    with torch.no_grad():
+        correct = 0
+        total = 0
+        for inputs, labels in loader:
+            inputs = inputs.to(torch.float).to(device)
+            labels = labels.to(device)
+            outputs = model(inputs)[-1]
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+        print('Train Accuracy of {} Model: {} %'.format(model_name, 100 * correct / total))
+    # torch.save(model.state_dict(), './model/model.pth')
+    return model, 100 * correct / total
+
 
 # prepare for log record
+#region
 time_log = datetime.now().strftime('%m-%d %H:%M')
 path = os.path.join(log_name, time_log)
 if not os.path.exists(path):
@@ -180,7 +220,7 @@ for model_name in model_total:
     for k,v in sorted(vars(args).items()):
         f.write(k+'='+str(v)+'\n')
     f.close()
-
+#endregion
 
 # testloaders = []
 # cnn and mlp collaboration
@@ -195,10 +235,10 @@ for iter in range(iterations):
     if args.decay == 1:
         if iter >= 0 and iter < 9:
             lr = args.lr
-        elif iter >= 9 and iter < 49:
-            lr = args.lr * 0.1
-        elif iter >= 49:
-            lr = args.lr * 0.1**2
+        elif iter >= 9 and iter < 19:
+            lr = args.lr * args.gamma
+        elif iter >= 19:
+            lr = args.lr * args.gamma**2
         print("Local Learning Rate:{}".format(lr))
     else:
         lr = args.lr
@@ -307,41 +347,6 @@ for iter in range(iterations):
     # 全局atten层参数加载到各个边端的atten层
     for para in model_last.values():
         para.atten.load_state_dict(global_atten_dict)
-
-# ipdb.set_trace()
-# plot_average_weight(aver_weights, './img/weight_change.png')
-
-
-# # cnn and mlp trained respectively 
-# # just for comparison, not included in collaboration procedure
-# for model_name in model_total:
-#     if model_name == 'CNN':
-#         model = CNN(channel1, kernel1, channel2, kernel2, num_class, input_dim).to(device)
-#     if model_name == 'MLP':
-#         model = MLP(input_dim=input_dim, hidden_dim1=hidden_dim1, hidden_dim2=hidden_dim2, output_dim=output_dim).to(device)
-    
-#     if model_name == 'CNN':
-#         trainset = dataSet_CNN(client.traindata[model_name], client.trainlabel[model_name])
-#         testset = dataSet_CNN(client.testdata[model_name], client.testlabel[model_name])
-#     if model_name == 'MLP':
-#         trainset = dataSet_MLP(client.traindata[model_name], client.trainlabel[model_name])
-#         testset = dataSet_MLP(client.testdata[model_name], client.testlabel[model_name])
-#     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=4, drop_last=True)
-#     test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=4, drop_last=True)
-    
-#     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-
-#     epochs_resp = epochs * iterations
-#     model_trained, train_acc = train(model, train_loader, optimizer, epochs_resp, device, model_name, class_num, True, prototype_last)
-
-#     test_acc = test(model_trained, test_loader, model_name)
-
-#     f = open(os.path.join(path, '{}_log.txt'.format(model_name)), "a")
-#     f.write("**********************models trained respectively**********************\n")
-#     f.write('train accuracy on {} model: {}   '.format(model_name, train_acc))
-#     f.write('test accuracy on {} model: {}\n'.format(model_name, test_acc))
-#     f.close()
-
 
 
 

@@ -11,6 +11,8 @@ def line_filter(f):
 
 def plot_test_acc(path, num_client, iteration=None):
     time = path.split('/')[-1]
+    if path.split('/')[-3] == 'local_train':
+        time = os.path.join('local_train', time)
     results = read_results(path, iteration=iteration)
     assert len(results) == num_client, 'results的长度不等于边端数量'
     values = np.zeros((num_client, len(list(results.values())[0])))
@@ -173,4 +175,4 @@ def read_results(path, iteration=None):
 #endregion
 
 if __name__ == '__main__':
-    plot_test_acc("/data/wjy/Promising_idea/learnt_atten_pro/log/wo_avg/11-23 16:46", 10, 45)
+    plot_test_acc("/data/wjy/Promising_idea/learnt_atten_pro/log/lr_decay/11-24 21:21", 10, 100)

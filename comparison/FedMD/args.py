@@ -12,7 +12,7 @@ def set_args():
 
     # heterogeneous data split
     parser.add_argument('--train_ratio', default='0.7', type=float)
-    parser.add_argument("--resplit", type=int, default=0, 
+    parser.add_argument("--resplit", type=int, default=1, 
                         help="Whether need to split again (resplit=1) or \
                               just read data already splited (resplit=0) ")
     parser.add_argument("--n_class", type=int, default=15, help="number of classification labels")
@@ -26,6 +26,8 @@ def set_args():
     # parser.add_argument("--sampling_ratio", type=float, default=0.05, help="Ratio for sampling training samples.")
 
     # models training
+    parser.add_argument('--init', default='1', type=int)
+    parser.add_argument('--public_num', default='50', type=int, help='Number of each class samples in public dataset')
     parser.add_argument('--lr', default='1e-3', type=float, help='Learning rate of local training')
     parser.add_argument('--global_lr', default='1e-3', type=float, help='Learning rate of global model')
     parser.add_argument('--gen_lr', default='1e-3', type=float, help='Learning rate of generator')
@@ -33,6 +35,7 @@ def set_args():
     parser.add_argument('--decay', default='1', type=int, help='whether decay learning rate on cloud')
 
     parser.add_argument('--epochs', default='5', type=int)
+    parser.add_argument('--public_epochs', default='20', type=int)
     parser.add_argument('--teacher_epoch', default='5', type=int)
     parser.add_argument('--gen_epoch', default='5', type=int)
     parser.add_argument('--iterations', default='1', type=int)
@@ -50,7 +53,6 @@ def set_args():
 
     # loss coeeficients
     # client training
-    # parser.add_argument('--alpha_atten', default='1', type=float, help='local training atten weight')
     parser.add_argument('--beta', default='0.1', type=float, help='local training l2 regularization')
     # generator training
     parser.add_argument('--lamda_proto', default='1', type=float, 
@@ -63,7 +65,7 @@ def set_args():
                                          help='coefficient of label in generator training')
     
     # self local training
-    parser.add_argument('--local_log_name', default='./log/local_train/lr_decay', type=str, help='self local training')
+    parser.add_argument('--local_log_name', default='./log/local_train/debug', type=str, help='self local training')
 
     # # global model training
     # parser.add_argument('--beta_proto', default='1', type=float, 

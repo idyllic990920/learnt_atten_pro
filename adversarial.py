@@ -121,10 +121,9 @@ def adversarial(args, models, attentions, prototypes, cloud_gen, iter, class_num
     model_atten = nn.ModuleList()
     for value in models.values():
         model_atten.append(value.atten)
-    global_atten_dict = para_avg(model_atten, weight)
+    global_atten_dict = para_avg(model_atten)
 
     return cloud_gen, global_atten_dict
-    # return cloud_gen
 
 
 def adversarial_global(args, models, attentions, prototypes, cloud_gen, global_model, iter, class_num, label_client, device):
@@ -562,7 +561,7 @@ def client_weight(loader, cloud_gen, models, device, class_num, label_client, we
     return weight_true
 
 
-def para_avg(model_atten, weight):
+def para_avg(model_atten):
     """
     这是模型参数平均函数！值得记忆！
     输入是多个模型组成的ModuleList

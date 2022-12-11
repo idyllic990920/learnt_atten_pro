@@ -90,6 +90,10 @@ local_log_name = args.local_log_name
 device = torch.device('cuda:{}'.format(args.gpu_id) if torch.cuda.is_available() else 'cpu')
 batch_size = args.batch_size
 
+client = Client_init(args, dataset_name, model_total, train_ratio)
+class_num = client.class_number             # 记录故障总类别数
+label_client = client.label_client          # 记录每个类别在每个边端各有多少样本
+
 time_log = datetime.now().strftime('%m-%d %H:%M')
 path = os.path.join(local_log_name, time_log)
 if not os.path.exists(path):
@@ -109,9 +113,6 @@ set_seed(seed)
 torch.backends.cudnn.deterministic = True      
 torch.backends.cudnn.benchmark = False
 
-client = Client_init(args, dataset_name, model_total, train_ratio)
-class_num = client.class_number             # 记录故障总类别数
-label_client = client.label_client          # 记录每个类别在每个边端各有多少样本
 
 for i in range(len(model_total)):
     uname ='u_{0:03d}'.format(i)

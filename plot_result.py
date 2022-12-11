@@ -3,14 +3,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 import re
 
-def line_filter(f):
+def Iteration_filter(f):
     if 'Iteration' in f:
         return False
     else:
         return True
 
+def test_filter(f):
+    if f[0:4] == 'test':
+        return False
+    else:
+        return True
+
 def plot_test_acc(path, num_client, iteration=None):
-    time = path.split('/')[-1]
+    path_root_list = path.split('/')
+    time = path_root_list[-1]
     if path.split('/')[-3] == 'local_train':
         time = os.path.join('local_train', time)
     results = read_results(path, iteration=iteration)
@@ -23,9 +30,19 @@ def plot_test_acc(path, num_client, iteration=None):
         plt.figure()
         plt.plot(x, value, marker='D')
         plt.title(name)
-        if not os.path.exists('./img/result/{}'.format(time)):
-            os.makedirs('./img/result/{}'.format(time))
-        plt.savefig('./img/result/{}/{}_result.png'.format(time, name), bbox_inches='tight', dpi=300)
+
+        if 'comparison' in path_root_list:
+            com_idx = path_root_list.index('comparison')
+            alg_root = os.path.join("./comparison", path_root_list[com_idx+1])
+            save_root = os.path.join(alg_root, 'img/result/{}'.format(time))
+            if not os.path.exists(save_root):
+                os.makedirs(save_root)
+            plt.savefig(os.path.join(save_root, '{}_result.png'.format(name)), bbox_inches='tight', dpi=300)
+        else:
+            if not os.path.exists('./img/result/{}'.format(time)):
+                os.makedirs('./img/result/{}'.format(time))
+            plt.savefig('./img/result/{}/{}_result.png'.format(time, name), bbox_inches='tight', dpi=300)
+
         values[i] = value
         i = i + 1
     
@@ -34,9 +51,18 @@ def plot_test_acc(path, num_client, iteration=None):
     x = np.arange(len(mean_acc))
     plt.plot(x, mean_acc, marker='x')
     plt.title('Average of all clients')
-    if not os.path.exists('./img/result/{}'.format(time)):
-        os.makedirs('./img/result/{}'.format(time))
-    plt.savefig('./img/result/{}/{}.png'.format(time, 'Average_of_all_clients'), bbox_inches='tight', dpi=300)
+
+    if 'comparison' in path_root_list:
+        com_idx = path_root_list.index('comparison')
+        alg_root = os.path.join("./comparison", path_root_list[com_idx+1])
+        save_root = os.path.join(alg_root, 'img/result/{}'.format(time))
+        if not os.path.exists(save_root):
+            os.makedirs(save_root)
+        plt.savefig(os.path.join(save_root, 'Average_of_all_clients.png'), bbox_inches='tight', dpi=300)
+    else:
+        if not os.path.exists('./img/result/{}'.format(time)):
+            os.makedirs('./img/result/{}'.format(time))
+        plt.savefig('./img/result/{}/{}.png'.format(time, 'Average_of_all_clients'), bbox_inches='tight', dpi=300)
 
 
 def read_results(path, iteration=None):
@@ -53,10 +79,11 @@ def read_results(path, iteration=None):
         model_path = os.path.join(path, i)
         f = open(model_path, 'r')
         result = f.readlines()
-        total = re.findall("\d+\.?\d*", result[-2])[-1]             # 得到总共应该进行多少轮迭代，采用了正则表达式
+        total = re.findall("\d+\.?\d*", result[-3])[-1]             # 得到总共应该进行多少轮迭代，采用了正则表达式
         begin = result.index('Iteration [1/{}] \n'.format(total))   # 得到第一轮迭代的起始位置
         result = result[begin:]                                     # 去掉前面的参数写入部分，从第一轮开始读结果
-        result = list(filter(line_filter, result))                  # 去掉每一行的 Iteration [] \n
+        result = list(filter(Iteration_filter, result))                  # 去掉每一行的 Iteration [] \n
+        result = list(filter(test_filter, result))
         if iteration != None:
             result = result[:iteration]
         for j in range(len(result)):
@@ -175,4 +202,4 @@ def read_results(path, iteration=None):
 #endregion
 
 if __name__ == '__main__':
-    plot_test_acc("/data/wjy/Promising_idea/learnt_atten_pro/log/lr_decay/11-24 21:21", 10, 100)
+    plot_test_acc("/data/wjy/Promising_idea/learnt_atten_pro/comparison/FedProto/log/proto/12-05 22:01", 10, 50)

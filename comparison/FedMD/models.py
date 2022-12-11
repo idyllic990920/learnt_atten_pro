@@ -79,5 +79,31 @@ class GEN(nn.Module):
         return out
 
 
+# class GLOBAL(nn.Module):
+#     def __init__(self, input_dim, hidden_dim1, output_dim):
+#         super(GLOBAL, self).__init__()
+#         self.pre_out = nn.Sequential(
+#             nn.Linear(input_dim, hidden_dim1),
+#             nn.BatchNorm1d(hidden_dim1),
+#             nn.LeakyReLU(0.2),
+#         )
+#         self.out = nn.Sequential(
+#             nn.Linear(hidden_dim1, output_dim),
+#         )
+#         self.atten = nn.Sequential(
+#             nn.Linear(input_dim, input_dim),
+#             nn.Tanh()
+#         )
+
+#     def forward(self, x):
+#         a = self.atten(x)
+#         a_new = torch.exp(a)
+#         x_new = x * a_new
+
+#         pre_out = self.pre_out(x_new)
+#         out = self.out(pre_out)
+#         return a, x_new, pre_out, out
+
+
 
 

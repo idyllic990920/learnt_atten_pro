@@ -1,6 +1,6 @@
-#################################################################################
-# This code is designed for new aggregation in Cloud - learnable attention idea #
-#################################################################################
+####################################################################
+# FedMD
+####################################################################
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader 
@@ -14,11 +14,7 @@ import torch.nn.functional as F
 from models import *
 from args import set_args
 import ipdb
-from collections import Counter
-# from adversarial import adversarial
 from cloud import cloud
-import warnings
-warnings.filterwarnings("ignore")
 
 
 args = set_args()
@@ -39,11 +35,15 @@ set_seed(seed)
 torch.backends.cudnn.deterministic = True      
 torch.backends.cudnn.benchmark = False
 
-client = Client_init(args, dataset_name, model_total, train_ratio)
+init = False
+public_num = args.public_num    # 表示公共数据集每一类样本的数量，乘以类别数即为公共数据集的整体样本量
+client = Client_init(args, dataset_name, train_ratio, public_num, init)
+# 完成私有数据分配和公共数据加载
+# 私有数据及其标签都是列表，但公有数据及其标签都是array
+# client.public['data'] (7500, 52)  client.public['label'] (7500,)
 class_num = client.class_number             # 记录故障总类别数
 label_client = client.label_client          # 记录每个类别在每个边端各有多少样本
-write_to_excel(label_client)
-ipdb.set_trace()
+
 
 def train(args, model, loader, device, optimizer, model_name, init_flag):
     print("{} train begining!...".format(model_name))
@@ -124,87 +124,6 @@ def test(model, loader, model_name):
             print('Test Accuracy of {} Model: {} %'.format(model_name, acc))
         return acc, predicted_set, labels_set
 
-def attention_and_prototype(model, loader, labels, device): 
-    # extract atten and proto
-    attens, protos = {}, {}
-    for item in labels:
-        attens[item] = []
-        protos[item] = []
-    attention_mat, prototype_mat = {}, {}
-
-    model.eval()
-    for i, (xi, yi) in enumerate(loader):
-        xi = xi.to(torch.float).to(device)
-
-        a, p, *_ = model(xi)
-
-        yi = yi.numpy()
-        for i in range(len(yi)):
-            attens[yi[i]].append(a[i, :].data.unsqueeze(dim=0).cpu().numpy())
-            protos[yi[i]].append(p[i, :].data.unsqueeze(dim=0).cpu().numpy())
-
-    # attention
-    attention_mat['data'] = {}
-    for key,value in attens.items():
-        value = np.vstack(value)
-        atten = np.mean(value, axis=0)
-        # attention normalization
-        if np.linalg.norm(atten.reshape(52)) != 0:
-            attention_mat['data'][key] = atten.reshape(52) / np.linalg.norm(atten.reshape(52))
-        else:
-            attention_mat['data'][key] = atten.reshape(52)
-    attention_mat['label'] = labels
-
-    # prototype
-    prototype_mat['data'] = {}
-    for key,value in protos.items():
-        value = np.vstack(value)
-        proto = np.mean(value, axis=0)
-        # prototype without normalization
-        prototype_mat['data'][key] = proto.reshape(52)
-    prototype_mat['label'] = labels
-
-    return attention_mat, prototype_mat, 
-
-def local_train(model, loader, epochs_resp, optimizer, device, model_name):
-    print("{} local training begin!...".format(model_name))
-    model.train()
-    total_step = len(loader)
-    ce = nn.CrossEntropyLoss()
-    
-    for epoch in range(epochs_resp):
-        for i, (xi, yi) in enumerate(loader):
-            if xi.shape[0] < 2:
-                break
-            xi = xi.to(torch.float).to(device)
-            yi = yi.to(device)
-
-            optimizer.zero_grad()
-            *_, out = model(xi)
-            loss = ce(out, yi)
-            loss.backward()
-            optimizer.step()
-
-            if i%100 == 0:
-                print ('Epoch [{}/{}], Step [{}/{}], Loss: [{:.4f}]'
-                .format(epoch+1, epochs_resp, i+1, total_step, loss.item()))
-
-    # 输出训练集上预测精度
-    model.eval()  
-    with torch.no_grad():
-        correct = 0
-        total = 0
-        for inputs, labels in loader:
-            inputs = inputs.to(torch.float).to(device)
-            labels = labels.to(device)
-            outputs = model(inputs)[-1]
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-        print('Train Accuracy of {} Model: {} %'.format(model_name, 100 * correct / total))
-    # torch.save(model.state_dict(), './model/model.pth')
-    return model, 100 * correct / total
-
 
 # prepare for log record
 #region
@@ -225,9 +144,7 @@ testloaders = []
 # cnn and mlp collaboration
 for iter in range(iterations):
     print("Iter [{}/{}]".format(iter+1, iterations))
-
     init_flag = False
-    prototype_matrix, attention_matrix = [], []
     models = {}
 
     # 是否进行学习率衰减
@@ -242,7 +159,6 @@ for iter in range(iterations):
     else:
         lr = args.lr
     
-
     # clients
     for i in range(len(model_total)):
         uname ='u_{0:03d}'.format(i)
@@ -250,7 +166,7 @@ for iter in range(iterations):
 
         if iter == 0:
             init_flag = True
-            prototype_last = []
+
             # model inilization
             if 'CNN' in model_name and dataset_name == 'TE':
                 model = CNN(MLP_base['input'],
@@ -286,17 +202,6 @@ for iter in range(iterations):
         labels = client.users[uname]['labels']
         traindata, testdata = z_score(traindata, testdata)
 
-        # # 最好的办法还是在这里生成数据，然后加入真实数据集构成训练集
-        # if iter != 0:
-        #     z_noise = torch.randn(traindata.shape[0], args.z_dim).to(device)
-        #     y = torch.arange(y_dim).repeat(traindata.shape[0]//y_dim+1)[:traindata.shape[0]].to(device)
-        #     y_hot = F.one_hot(y)
-        #     fake = cloud_gen(z_noise, y_hot).cpu().detach().numpy()
-        #     y = y.cpu().numpy()
-
-        #     traindata = np.vstack((traindata, fake))
-        #     trainlabel = np.concatenate((trainlabel, y))
-
         if 'CNN' in model_name:
             trainset = dataSet_CNN(traindata, trainlabel)
             testset = dataSet_CNN(testdata, testlabel)
@@ -322,22 +227,13 @@ for iter in range(iterations):
         f.write('test accuracy on {} model: {}\n'.format(model_name, test_acc))
         f.close()
 
-        # Create attention matrix and prototype matrix of each client
-        attention_matrix.append(attention_and_prototype(model_trained, train_loader, labels, device)[0])
-        prototype_matrix.append(attention_and_prototype(model_trained, train_loader, labels, device)[1])
         models[model_name] = model_trained
-    attention_last = attention_matrix
-    prototype_last = prototype_matrix
     model_last = models
 
     # cloud
-    # cloud_gen, global_atten_dict = adversarial(args, model_last, attention_last, prototype_last, \
-    #                                            cloud_gen, iter, class_num, label_client, device)
-    # cloud_gen, global_atten_dict = adversarial(args, model_last, attention_last, prototype_last, \
-    #                                            cloud_gen, iter, class_num, label_client, device)
     cloud_gen, models = cloud(args, models, attention_last, prototype_last, cloud_gen, z_dim, iter, class_num, label_client, device)
     model_last = models
-    
+
     i = 0
     for name, model in models.items():
         test_acc = test(model, testloaders[i], name)
@@ -349,9 +245,3 @@ for iter in range(iterations):
     
     # plot distribution of cloud generated samples
     plot_generate_sample(args, cloud_gen, testdata, testlabel, iter, device, time_log)
-    # 全局atten层参数加载到各个边端的atten层
-    # for para in model_last.values():
-    #     para.atten.load_state_dict(global_atten_dict)
-
-
-

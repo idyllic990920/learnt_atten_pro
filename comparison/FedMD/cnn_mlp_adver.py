@@ -43,7 +43,7 @@ client = Client_init(args, dataset_name, model_total, train_ratio)
 class_num = client.class_number             # 记录故障总类别数
 label_client = client.label_client          # 记录每个类别在每个边端各有多少样本
 write_to_excel(label_client)
-ipdb.set_trace()
+
 
 def train(args, model, loader, device, optimizer, model_name, init_flag):
     print("{} train begining!...".format(model_name))
@@ -164,7 +164,7 @@ def attention_and_prototype(model, loader, labels, device):
         prototype_mat['data'][key] = proto.reshape(52)
     prototype_mat['label'] = labels
 
-    return attention_mat, prototype_mat, 
+    return attention_mat, prototype_mat
 
 def local_train(model, loader, epochs_resp, optimizer, device, model_name):
     print("{} local training begin!...".format(model_name))

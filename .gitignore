@@ -5,3 +5,5 @@ results/
 client_data_partition.xlsx
 __pycache__/
 .vscode/
+fig/
+models/
